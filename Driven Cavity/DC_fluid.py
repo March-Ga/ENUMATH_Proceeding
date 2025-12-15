@@ -8,7 +8,7 @@ import os
 #
 # - validate using reference solution, as did before - DONE
 # - compute at each time, the residual of full NS (divergence should be ok)
-# - fai interpolazione fine
+# - fai interpolazione fine - DONE
 # 
 #
 # # # # 
@@ -198,6 +198,11 @@ def solve(lx, ly, nx, ny, Nt, vel0):
     return usol, vsol, psol
 
 def interpolation(usol, vsol, psol, fine = False):
+    """
+    Fine interpolation: at each pressure volume, we have 4 velocity subdomains, 
+    so we can divide each control volume in 4 equal subvolumes, each ones 
+    with a values of u and v depending on the corresponding u and v volume
+    """
     u_int = []
     v_int = []
     p_int = []
@@ -319,7 +324,7 @@ if __name__ == "__main__":
     dy = ly/ny
     usol, vsol, psol = solve(lx, ly, nx, ny, Nt, vel0)
     # plot_divergence(usol[-1], vsol[-1], nx, ny, lx/nx, ly/ny)
-    u_i, v_i, p_i = interpolation(usol, vsol, psol, True)
+    u_i, v_i, p_i = interpolation(usol, vsol, psol, False)
 
     visual(u_i, v_i, p_i, lx, nx, dx, ly, ny, dy)
     # create_video(u_i, v_i, p_i, 'test0', lx, nx, dx, ly, ny, dy)
