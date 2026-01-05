@@ -1,0 +1,440 @@
+%%%%%%%%%%%%%%%%%%%% author.tex %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% sample root file for your "contribution" to a contributed volume
+%
+% Use this file as a template for your own input.
+%
+%%%%%%%%%%%%%%%% Springer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% RECOMMENDED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[graybox]{svmult}
+
+% choose options for [] as required from the list
+% in the Reference Guide
+
+\usepackage{type1cm}        % activate if the above 3 fonts are
+                            % not available on your system
+%
+\usepackage{makeidx}         % allows index generation
+\usepackage{graphicx}        % standard LaTeX graphics tool
+                             % when including figure files
+\usepackage{multicol}        % used for the two-column index
+\usepackage[bottom]{footmisc}% places footnotes at page bottom
+
+
+\usepackage{newtxtext}       % 
+\usepackage[varvw]{newtxmath}       % selects Times Roman as basic font
+
+% see the list of further useful packages
+% in the Reference Guide
+
+\makeindex             % used for the subject index
+                       % please use the style svind.ist with
+                       % your makeindex program
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\title*{A comparative Analysis of Immersed Methods for Fluid-Structure Interaction problems}
+% Use \titlerunning{Short Title} for an abbreviated version of
+% your contribution title if the original one is too long
+\author{Gabriele Marchi\orcidID{0009-0005-6930-2706} and\\ Rolf Krause\orcidID{0000-0001-5408-5271} and\\ Patrick Zulian\orcidID{0000-0002-5822-3288}}
+% Use \authorrunning{Short Title} for an abbreviated version of
+% your contribution title if the original one is too long
+\institute{Gabriele Marchi \at Università della Svizzera italiana, Lugano, 6900, Ticino, Switzerland, \email{gabriele.marchi@usi.ch}
+\and Rolf Krause \at King Abdullah University Of Science And Technology, Thuwal, 23955, Saudi Arabia, \email{rolf.krause@kaust.edu.sa}
+\and Patrick Zulian \at Università della Svizzera italiana, Lugano, 6900, Ticino, Switzerland, \email{patrick.zulian@usi.ch}}
+%
+% Use the package "url.sty" to avoid
+% problems with special characters
+% used in your e-mail or web address
+%
+\maketitle
+
+% \abstract*{}
+\abstract{This work focuses on numerical methods for solving fluid-structure interaction (FSI) problems, with particular emphasis on immersed methods for coupling fluid and structural dynamics. We present a comparative study of two different immersed approaches: the Immersed Boundary Method (IBM) and the Immersed Domain Method (IDM). Furthermore, we analyze two different strategies for enforcing the coupling between the fluid and the structure: penalty-based methods and Lagrange multiplier-based methods.
+We present a numerical analysis to investigate whether, despite differences in formulation, all methods converge to the same solution as the mesh is progressively refined. The convergence and accuracy of these approaches are evaluated through a series of benchmark scenarios involving immersed structures under various flow conditions.
+The study contributes to a better understanding of the numerical behavior of different coupling techniques in immersed FSI frameworks.
+\textcolor{red}{Aggiungi il fatto che qui il focus è sul metodo, per cui usiamo un approcio FULL EXPLICIT e usiamo low order methods FV e FE, usando L2-quasi projection per lumping.}}
+
+\section{Introduction}
+\label{sec:introduction}
+\subsection{State-of-the-Art}
+\label{subsec:state-of-the-art}
+\subsection{Contribution and Structure of the Paper}
+\label{subsec:contribution-structure}
+
+\section{FSI Problem Formulation}
+\label{sec:problem}
+We consider a fluid--structure interaction (FSI) problem in an immersed setting, where
+the fluid equations are posed on a fixed Eulerian domain, while the structure is
+described in a Lagrangian framework and is embedded within the fluid domain.
+
+\subsection{Domains and kinematics}
+Let $\Omega_f \subset \mathbb{R}^d$, $d=2,3$, be a fixed bounded domain occupied by the
+fluid. The solid occupies a time-dependent subdomain $\Omega_s(t) \subset \Omega_f$ of
+codimension zero (thick structure) (this is more general, the same holds for thin structures). In the immersed formulation, the fluid equations
+are defined on the entire fixed domain $\Omega_f$, including the region occupied by the
+solid.
+
+The reference configuration of the solid is denoted by $\Omega_s^0 \subset \mathbb{R}^d$.
+The motion of the solid is described by a deformation map
+\begin{equation}
+\boldsymbol{\chi}(\boldsymbol{X},t) : \Omega_s^0 \rightarrow \Omega_s(t),
+\end{equation}
+where $\boldsymbol{X} \in \Omega_s^0$ denotes the Lagrangian (material) coordinate and
+\begin{equation}
+\boldsymbol{x} = \boldsymbol{\chi}(\boldsymbol{X},t)
+\end{equation}
+is the current position of the material point at time $t$.
+
+\subsection{Fluid model}
+
+The fluid is assumed to be incompressible and Newtonian. Its motion is governed by the
+incompressible Navier--Stokes equations written on the fixed domain $\Omega_f$:
+\begin{equation}
+\rho_f \left(
+\frac{\partial \boldsymbol{u}_f}{\partial t}
++ \boldsymbol{u}_f \cdot \nabla \boldsymbol{u}_f
+\right)
+- \nabla \cdot \boldsymbol{\sigma}_f
+= \boldsymbol{f}_f
+\quad \text{in } \Omega_f,
+\end{equation}
+\begin{equation}
+\nabla \cdot \boldsymbol{u}_f = 0
+\quad \text{in } \Omega_f,
+\end{equation}
+where $\boldsymbol{u}_f(\boldsymbol{x},t)$ and $p(\boldsymbol{x},t)$ denote the fluid
+velocity and pressure, respectively, and $\rho_f$ is the fluid density.
+
+The Cauchy stress tensor of the fluid is given by
+\begin{equation}
+\boldsymbol{\sigma}_f
+= -p \boldsymbol{I}
++ 2 \mu_f \boldsymbol{\varepsilon}(\boldsymbol{u}_f),
+\end{equation}
+with the strain-rate tensor
+\begin{equation}
+\boldsymbol{\varepsilon}(\boldsymbol{u}_f)
+= \frac{1}{2}
+\left(
+\nabla \boldsymbol{u}_f
++ \nabla \boldsymbol{u}_f^{T}
+\right),
+\end{equation}
+where $\mu_f$ denotes the dynamic viscosity.
+\textcolor{red}{valuta passaggio alla formulazione piu classica, quella che ho fatto con FVs, con unico parametro nu (spiegando come è definito)}
+\subsection{Solid model}
+
+The solid is modeled as a linearly elastic body described in the Lagrangian framework.
+Its dynamics are governed by the balance of linear momentum in the reference
+configuration:
+\begin{equation}
+\rho_s \frac{\partial^2 \boldsymbol{\chi}}{\partial t^2}
+- \nabla_{\boldsymbol{X}} \cdot \boldsymbol{\sigma}_s
+= \boldsymbol{f}_s
+\quad \text{in } \Omega_s^0,
+\end{equation}
+where $\rho_s$ is the solid density and $\boldsymbol{\sigma}_s$ denotes the Lagrangian
+stress tensor.
+
+For linear elasticity, the constitutive law is written in terms of the Lam\'e parameters
+$\lambda_s$ and $\mu_s$:
+\begin{equation}
+\boldsymbol{\sigma}_s
+= \lambda_s \, (\nabla_{\boldsymbol{X}} \cdot \boldsymbol{u}_s)\, \boldsymbol{I}
++ 2 \mu_s \, \boldsymbol{\varepsilon}_{\boldsymbol{X}}(\boldsymbol{u}_s),
+\end{equation}
+where the displacement and strain tensors are defined as
+\begin{equation}
+\boldsymbol{u}_s(\boldsymbol{X},t)
+= \boldsymbol{\chi}(\boldsymbol{X},t) - \boldsymbol{X},
+\end{equation}
+\begin{equation}
+\boldsymbol{\varepsilon}_{\boldsymbol{X}}(\boldsymbol{u}_s)
+= \frac{1}{2}
+\left(
+\nabla_{\boldsymbol{X}} \boldsymbol{u}_s
++ \nabla_{\boldsymbol{X}} \boldsymbol{u}_s^{T}
+\right).
+\end{equation}
+This formulation can be readily extended to nonlinear elastic or viscoelastic material
+models.
+\textcolor{red}{cambia e metti qui la formulazione senza inerzia, di però che è easy aggiungerla e spiega come, fai esempio del newmark}
+\subsection{Fluid--structure coupling conditions}
+
+The interaction between the fluid and the solid is characterized by two coupling
+conditions imposed at the fluid--solid interface
+$\Gamma_s(t) = \partial \Omega_s(t)$.
+
+The kinematic condition enforces equality of fluid and solid velocities at the
+interface. The solid velocity is obtained by time differentiation of the deformation
+map:
+\begin{equation}
+\boldsymbol{u}_f(\boldsymbol{\chi}(\boldsymbol{X},t),t)
+= \frac{\partial \boldsymbol{\chi}}{\partial t}(\boldsymbol{X},t),
+\quad \boldsymbol{X} \in \partial \Omega_s^0.
+\end{equation}
+
+The dynamic condition expresses equilibrium of tractions at the interface:
+\begin{equation}
+\boldsymbol{\sigma}_f(\boldsymbol{x},t)\,\boldsymbol{n}_f
+= \boldsymbol{\sigma}_s(\boldsymbol{X},t)\,\boldsymbol{n}_s,
+\quad
+\boldsymbol{x} = \boldsymbol{\chi}(\boldsymbol{X},t).
+\end{equation}
+
+In immersed methods for fluid--structure interaction, enforcing the kinematic continuity
+at the interface determines the interaction force required to match fluid and
+structural velocities. This force is applied with equal magnitude and opposite sign to
+the fluid and the structure, ensuring conservation of momentum. As a consequence, the
+dynamic equilibrium of tractions across the interface is satisfied implicitly and does
+not need to be imposed explicitly.
+\subsection{Enforcement of the kinematic coupling condition}
+
+At this stage, the fluid--structure interaction is enforced solely through the
+\emph{kinematic coupling condition}, namely the equality of fluid and solid velocities
+at the region where the interaction takes place. The definition of this interaction
+region distinguishes different classes of immersed methods.
+
+In Immersed Boundary (IB) methods, the interaction is restricted to the
+fluid--structure interface, corresponding to the boundary of the solid domain
+$\partial \Omega_s(t)$. The kinematic condition is imposed only on a set of codimension
+one:
+\begin{equation}
+\boldsymbol{u}_f(\boldsymbol{\chi}(\boldsymbol{X},t),t)
+=
+\frac{\partial \boldsymbol{\chi}}{\partial t}(\boldsymbol{X},t),
+\quad
+\boldsymbol{X} \in \partial \Omega_s^0.
+\end{equation}
+This localized enforcement results in a relatively inexpensive coupling strategy.
+However, no constraints are imposed on the fluid equations within the interior of the
+solid domain $\Omega_s(t)$. Consequently, the fluid velocity inside $\Omega_s(t)$ may
+exhibit nonphysical or spurious behavior. This does not affect the accuracy of the
+method, since the fluid solution in the solid region is not physically relevant and is
+excluded from the interpretation of the results.
+
+In Immersed Domain (ID) methods, the interaction region is extended to the entire solid
+domain. The kinematic coupling condition is enforced in all of $\Omega_s(t)$:
+\begin{equation}
+\boldsymbol{u}_f(\boldsymbol{\chi}(\boldsymbol{X},t),t)
+=
+\frac{\partial \boldsymbol{\chi}}{\partial t}(\boldsymbol{X},t),
+\quad
+\boldsymbol{X} \in \Omega_s^0.
+\end{equation}
+As a result, the fluid and solid velocities coincide throughout the immersed solid,
+thereby preventing spurious internal fluid motion and unphysical fluxes. This increased
+level of physical constraint comes at the cost of a more expensive enforcement, since
+the coupling condition is imposed on a set of codimension zero.
+
+The fundamental difference between Immersed Boundary and Immersed Domain approaches
+thus lies in the dimensionality of the interaction region and the associated trade-off
+between computational efficiency and the degree of physical constraint imposed on the
+fluid within the immersed solid.
+\textcolor{red}{fai una chiara distinzione tra displacement e position, poi sarà utile}
+\section{Coupling Methods - Lagrange vs Penalty}
+\label{sec:coupling-methods}
+The key point is that we want to enforce that condition, meaning that I want to solve a constrined problem, the 2 most common and simple way for doing it is to use lagrange multipliers or a penalisation term.
+We start introducing Lagrane multipliers based methods, that are exact, and allow us to solve the sistem simply adding some forcing terms that will be treated ad external forces, remaining coherent wioth the previous formulations.
+
+
+\subsection{Lagrange multiplier based approach}
+\label{subsec:lagrange-multiplier}
+We want to enfore the constraint, so we use distributed lagrange multipliers to enforce it. We define the multipliers on the entire interaction domain, i.e. on $\partial \Omega_s(t)$ when using IB and on $\Omega_s(t)$ when using ID. 
+Despite they are defined on the same domain, we can choose different discretisation for the mutiplier and the solid (report some good references (Boffi ?) on how to choose the discretisation to guarantee stability).
+
+According to the lagrange formulation in Appendix A of ()%https://onlinelibrary.wiley.com/doi/epdf/10.1002/1097-0363%2820010415%2935%3A7%3C743%3A%3AAID-FLD109%3E3.0.CO%3B2-A?saml_referrer
+the enforcement of the condition leads to the following sistem of equation:
+The parentesis indicate the L2 product over the domain indicated in the subscript.
+Find $\boldsymbol{u_f}, p_f, \boldsymbol{\eta_s}, \boldsymbol{\lambda}$ such that
+\begin{eqnarray}
+\left( \rho_f \frac{\partial u_f}{\partial t}
++ \rho_f (u_f \cdot \nabla) u_f
+- \nabla \cdot \sigma_f(u_f, p_f),
+\delta u_f \right)_{\Omega_f}
+- (\lambda, \delta u_f)_{I(t)} &=& 0 \\
+(\nabla \cdot u_f, \delta p_f)_{\Omega_f} &=& 0 \\
+\left( \rho_s \frac{\partial^2 \eta_s}{\partial t^2}
+- \nabla \cdot \sigma_s(\eta_s),
+\delta u_s \right)_{\Omega_s(t)}
++ (\lambda, \delta u_s)_{I(t)} &=& 0 \\
+(u_s - u_f, \delta \lambda)_{I(t)} &=& 0
+\end{eqnarray}
+for each test function $\delta u_f, \delta p_f, \delta \eta_s, \delta \lambda$ in the corresponding spaces, where $I(t)$ is the interaction domain, i.e. $\partial \Omega_s(t)$ for IB and $\Omega_s(t)$ for ID.
+So only three additional terms are added to the original problem.
+
+\textcolor{red}{the well posedness of the problem is analyzed in Boffi - FD\_lagr\_mult}
+
+We can now rewrite the problem in matrix form:
+\begin{eqnarray}
+\begin{bmatrix}
+A_f & 0   & -B \\
+0   & A_s & C^\top \\
+-B^\top   & C   & 0
+\end{bmatrix}
+\begin{bmatrix}
+\boldsymbol{\delta u}_f \\
+\boldsymbol{\delta u}_s \\
+\boldsymbol{\delta \lambda}
+\end{bmatrix}
+=
+\begin{bmatrix}
+\boldsymbol{f}^f \\
+\boldsymbol{f}^s \\
+\boldsymbol{0}
+\end{bmatrix}
+\end{eqnarray}
+where this is a simplification of the real system, where we are fusing $u_f$ and $p_f$ in the same variable, and we denote the discrete unknowns by $\boldsymbol{u}_f, \boldsymbol{u}_s, \boldsymbol{\lambda}$.
+\textcolor{red}{1. spiegare meglio l'uniione delle variabili del fluido? forse meglio separate? comunque va spiegata bene.  2. è davvero necessario usare le f? forse si per completezza dai}
+Expanding the matrix system row by row, we obtain the following equivalent form:
+\begin{align}
+A_f \boldsymbol{u}_f - B \boldsymbol{\lambda} &= \boldsymbol{f}^f, \label{eq:fluid-eqn}\\
+A_s \boldsymbol{u}_s + C^\top \boldsymbol{\lambda} &= \boldsymbol{f}^s, \label{eq:solid-eqn}\\
+-B^\top \boldsymbol{u}_f + C \boldsymbol{u}_s &= \boldsymbol{0}. \label{eq:constraint-eqn}
+\end{align}
+
+The discrete coupling entries are defined by
+\[
+B_{i,j} := \int_{I(t)} \boldsymbol{\phi}_i \cdot \boldsymbol{\psi}_j \,\mathrm{d}\gamma,\qquad i=1,\dots,N_{\lambda},\; j=1,\dots,N_f,
+\]
+and
+\[
+C_{k,i} := \int_{I(t)} \boldsymbol{\varphi}_k \cdot \boldsymbol{\phi}_i \,\mathrm{d}\gamma,\qquad k=1,\dots,N_s,\; i=1,\dots,N_{\lambda}.
+\]
+\textcolor{red}{per semplicità e leggibilità, si potrebbe anche usare la phi per tutti e 3 e mettere sopra una letterina s,f,lambda}
+\subsection{Resolution algorithm - Partitioned approach}
+After defining the coupled fluid–structure interaction problem, two main numerical solution strategies can be adopted: a monolithic approach, in which the fluid and structural equations are solved simultaneously within a single coupled system, and a partitioned approach, where the two subproblems are solved separately and coupled through an iterative exchange of interface data. While the monolithic strategy generally offers higher robustness and stability, particularly for strongly coupled problems, it comes at the cost of increased implementation complexity. In this work, a partitioned approach is employed, as it provides greater simplicity and flexibility, allowing the independent treatment of the fluid and structural solvers
+
+From equations \eqref{eq:fluid-eqn}--\eqref{eq:constraint-eqn}, we can derive a partitioned solution algorithm by 
+decoupling the fluid and solid subproblems through the Lagrange multiplier.
+
+From \eqref{eq:constraint-eqn}, we obtain the solid velocity at the interface in terms of the fluid velocity:
+\[
+\boldsymbol{u}_s = C^{-1} B^\top \boldsymbol{u}_f.
+\]
+
+Once obtained the solid velocity, from \eqref{eq:solid-eqn}, we compute the Lagrange multiplier as \textcolor{red}{this is the solid residual with the current solid velocity inserted, it is a force that needs to be applied to the solid to enforce the constraint / stress that the solid is applying to the fluid to enforce the constraint}
+\[
+\boldsymbol{\lambda} = C^{-\top}(\boldsymbol{f}^s - A_s \boldsymbol{u}_s).
+\]
+
+Finally, we compute the fluid velocity from \eqref{eq:fluid-eqn}, applying the computed force :
+\[
+\boldsymbol{u}_f = A_f^{-1}(\boldsymbol{f}^f + B \boldsymbol{\lambda}).
+\]
+This partitioned approach decouples the fluid and structure through the constraint multiplier, allowing independent treatment of each subproblem while maintaining exact enforcement of the kinematic constraint.
+Overall, for each time step, the algorithm consists in computing the solid velocity interpolating from the fluid, then computing the lagrange multiplier as the force needed to enforce the constraint on the solid, and finally applying that force to the fluid to compute the new fluid velocity. The procedure is repeated until the the norm of the difference between two consecutive lagrange multipliers is below a certain tolerance.
+
+\section{Practical implementation}
+\label{sec:practical-implementation}
+All the previous formulations are general and can be implemented using each kind of discretisation method for fluid and solid. In this work we focus on a finite volume method for the fluid and a finite element method for the solid, both being low order methods (FV: structured mesh with staggered variables, Explicit Euler for time; FE: linear tetrahedral elements, explicit Euler for time (anche nessuno con inierzia)). The coupling is done using a L2-quasi-projection method to transfer quantities between the non-conforming fluid and solid meshes. 
+
+\subsection{Computation tranfer operators}
+According to our patitioned algorithm we have to assemble the transfer operator $C^{-1}B^\top$ that maps quantities defined on the fluid mesh onto the solid mesh. 
+The simplest way of doing it is a node based iterpolation, where for each solid node, we compute in wich fluid cell is at the current timestepa and we use that value.
+The way we did is a 'mortar based' approach, where we approximate the integrals of B using a quadrature rule of the integral, looking in wich cell each quadrature node is.
+In practice we used a L2-quasi-projection, the idea is that since we are discretizing the solid and the lagrange multiplier in the same way, we have the same basis functions $\boldsymbol{\phi}$
+so the transfer operator is rewritten as:
+\begin{equation}
+(C^{-1}B^\top)_{i,j} = \sum_{k=1}^{N_\lambda} C^{-1}_{i,k} B_{j,k} = \sum_{k=1}^{N_\lambda} \left( \int_{I(t)} \boldsymbol{\phi}_i \cdot \boldsymbol{\phi}_k \,\mathrm{d}\gamma \right)^{-1} \left( \int_{I(t)} \boldsymbol{\psi}_j \cdot \boldsymbol{\phi}_k \,\mathrm{d}\gamma \right)
+\end{equation}
+
+We consider the interface coupling matrices
+\[
+B_{i,j} := \int_{I(t)} \boldsymbol{\phi}_i \cdot \boldsymbol{\psi}_j \,\mathrm{d}\gamma,
+\qquad
+C_{k,i} := \int_{I(t)} \boldsymbol{\varphi}_k \cdot \boldsymbol{\phi}_i \,\mathrm{d}\gamma .
+\]
+
+The matrix $C$ represents the $L^2(I(t))$ mass matrix associated with the multiplier
+basis $\{\boldsymbol{\phi}_i\}$. In order to avoid the solution of a global interface
+system, we approximate $C$ by its diagonal lumped counterpart $C^{\mathrm{lump}}$,
+defined as
+\[
+C^{\mathrm{lump}}_{ii}
+:= \sum_{k} C_{ik}
+= \int_{I(t)} \boldsymbol{\phi}_i \cdot \boldsymbol{\phi}_i \,\mathrm{d}\gamma ,
+\qquad
+C^{\mathrm{lump}}_{ij} = 0 \;\; \text{for } i\neq j .
+\]
+The inverse of $C$ is then approximated by
+\[
+C^{-1} \;\approx\; (C^{\mathrm{lump}})^{-1},
+\qquad
+\bigl((C^{\mathrm{lump}})^{-1}\bigr)_{ii}
+= \frac{1}{C^{\mathrm{lump}}_{ii}} .
+\]
+
+Moreover, we assume that the fluid test functions $\boldsymbol{\psi}_j$ are
+cellwise indicator functions on the fluid interface cells $F_j \subset I(t)$.
+Under this assumption, the coupling matrix $B$ simplifies to
+\[
+B_{i,j}
+= \int_{F_j} \boldsymbol{\phi}_i \,\mathrm{d}\gamma .
+\]
+
+Combining these approximations, the action of the operator $C^{-1}B^\top$ is
+approximated by
+\[
+\bigl(C^{-1} B^\top\bigr)_{i,j}
+\;\approx\;
+\frac{1}{\displaystyle \int_{I(t)} \boldsymbol{\phi}_i \cdot \boldsymbol{\phi}_i
+\,\mathrm{d}\gamma}
+\int_{F_j} \boldsymbol{\phi}_i \,\mathrm{d}\gamma ,
+\]
+which corresponds to an $L^2$ quasi-projection based on mass lumping, yielding a local, conservative, stable coupling operator
+
+So overall, at each timestep we compute this transfer operator $\mathcal{T} := C^{-1}B^\top$ based on the actual position of the solid, then we use the tranpose of this operator $\mathcal{T}^\top := B C^{-T}$ to transfer forces from the solid to the fluid.
+\textcolor{red}{differenze: https://chatgpt.com/share/6952ad82-dd30-8012-9f72-bf7e98bc0f75}
+
+\section{spunti}
+\begin{itemize}
+    \item This choice leads to a scheme that is first-order accurate in time only. This is sufficient to
+        demonstrate the characteristics of the proposed method, but for many applications higher-order approximations are recommended.
+\end{itemize}
+
+\section{Function spaces and basis functions}
+\label{sec:basis-functions}
+At the continuous level we denote by
+\[
+V_f := [H^1(\Omega_f)]^d,\qquad V_s := [H^1(\Omega_s^0)]^d,
+\]
+the fluid velocity and solid displacement (or velocity) spaces, respectively. The space of
+Lagrange multipliers is denoted by $M$, which is taken as a suitable trace/dual space on the
+interaction domain $I(t)$ (for example $I(t)=\partial\Omega_s(t)$ for IB and $I(t)=\Omega_s(t)$ for ID), e.g.
+\[
+M := H^{-1/2}(I(t)).
+\]
+
+We consider finite-dimensional approximation subspaces $V_f^h \subset V_f$, $V_s^h \subset V_s$ and $M^h \subset M$ with bases
+\[
+\{\boldsymbol{\varphi}_i\}_{i=1}^{N_s} \subset V_s^h,\qquad
+\{\boldsymbol{\psi}_j\}_{j=1}^{N_f} \subset V_f^h,\qquad
+\{\boldsymbol{\phi}_k\}_{k=1}^{N_\lambda} \subset M^h,
+\]
+where the bold symbols indicate vector-valued basis functions for solid and fluid fields and the $\boldsymbol{\phi}_k$ are scalar (or appropriately-valued) basis functions for the multiplier space. The discrete unknowns are then written as
+\[
+\boldsymbol{u}_s^h=\sum_{i=1}^{N_s} U_i \boldsymbol{\varphi}_i,\qquad
+\boldsymbol{u}_f^h=\sum_{j=1}^{N_f} V_j \boldsymbol{\psi}_j,\qquad
+\lambda^h=\sum_{k=1}^{N_\lambda} \Lambda_k \boldsymbol{\phi}_k.
+\]
+
+The choice of the multiplier space $M^h$ relative to $V_s^h$ and $V_f^h$ influences stability (inf--sup) and approximation properties; practical selections and stabilization strategies are discussed in the literature and relate to the discrete coupling matrices introduced above.
+\section{Numerical exaple}
+\label{sec:numerical-example}
+COMPARE:
+\begin{itemize}
+    \item 
+\end{itemize}
+
+MIO:
+\begin{itemize}
+    \item aumenta dt, vedi se comunque la soluzione finale è la stessa e come cambia il numero di iterazioni per timestep
+\end{itemize}
+\input{references}
+\end{document}
