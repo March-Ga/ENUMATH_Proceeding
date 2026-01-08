@@ -2,4 +2,5 @@ numpy
 numba
 matplotlib
 scipy
-os
+pandas
+shapely

@@ -1,8 +1,12 @@
+from multiprocessing.resource_sharer import stop
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse.linalg import splu
 import matplotlib.pyplot as plt
 import os
+
+from FSI_DC import assembly_B_ID_Pen
+from FSI_DC import assembly_indicator
 
 # # TO DO
 #
@@ -106,7 +110,31 @@ def assemble_lapl(nx, ny, dx, dy):
 
     return C, b
 
-def solve(lx, ly, nx, ny, Nt, vel0):
+def solve(lx, ly, nx, ny, Nt, vel0, mu):
+
+
+    lx_s = 0.15
+    ly_s = 0.15
+    nx_s = 5
+    ny_s = 5
+    Nb = (nx_s + 1) * (ny_s + 1)
+
+    x = np.linspace(0, lx_s, nx_s +1)
+    y = np.linspace(0, ly_s, ny_s + 1)
+    X, Y = np.meshgrid(x, y, indexing='ij')
+    P = np.vstack([X.ravel(), Y.ravel()])
+
+    ix, jy = np.meshgrid(np.arange(nx_s), np.arange(ny_s), indexing='ij')
+    n1 = ix * (ny_s + 1) + jy
+    n2 = n1 + (ny_s + 1)
+    n3 = n2 + 1
+    n4 = n1 + 1
+    T = np.stack([n1, n2, n3, n4], axis=-1).reshape(-1, 4).T
+
+    d0x, d0y = 0.275, 0.25
+
+    x_obj = P[0, :] + d0x 
+    y_obj = P[1, :] + d0y 
 
     dx = lx / nx
     dy = ly / ny
@@ -131,9 +159,27 @@ def solve(lx, ly, nx, ny, Nt, vel0):
     psol.append(p.copy())
 
     A_lapl, _ = assemble_lapl(nx, ny, dx, dy)
+    Bx, By = assembly_B_ID_Pen(x_obj, y_obj, dx, dy, nx_s, ny_s, nx, ny, T) 
+    Ix, Iy = assembly_indicator(x_obj, y_obj, dx, dy, nx_s, ny_s, nx, ny, lx, ly) 
+    Ix = Ix.T
+    Iy = Iy.T
+    print('Ix')
+    print(Ix)
 
-    # TIME ADVANCE LOOP
+    vs_x = np.zeros(Nb)
+    vs_y = np.zeros(Nb)
+
+    vf_x = Bx.T @ vs_x
+    vf_y = By.T @ vs_y
+    # print('velocities')
+    # print(max(abs(vf_x)))
+    # print(max(abs(vf_y)))
+
+    vf_x = vf_x.reshape((ny, nx + 1))  
+    vf_y = vf_y.reshape((ny + 1, nx))
+
     for _ in range(0, Nt):
+
         # Boundary conditions, all'inizio per conservare la massa
         # Left wall
         u[:,1] = 0.0
@@ -162,7 +208,10 @@ def solve(lx, ly, nx, ny, Nt, vel0):
         diffusion = nu * ((u[1:ny+1, 1:nx] - 2.0 * u[1:ny+1, 2:nx+1] + u[1:ny+1, 3:nx+2]) / dx**2 +
                         (u[0:ny, 2:nx+1] - 2.0 * u[1:ny+1, 2:nx+1] + u[2:ny+2, 2:nx+1]) / dy**2)
 
-        ut[1:ny+1, 2:nx+1] = u[1:ny+1, 2:nx+1] + dt * (convection + diffusion)
+        ut[1:ny+1, 2:nx+1] = u[1:ny+1, 2:nx+1] + dt * (convection + diffusion) + mu * Ix[:,1:-1] * (vf_x[:,1:-1] + u[1:ny+1, 2:nx+1])
+        # print(mu * Ix[:,1:-1] * (vf_x[:,1:-1] + u[1:ny+1, 2:nx+1]))dt * mu * Ix[:,1:-1] * (vf_x[:,1:-1] -
+        # print(u[1:ny+1, 2:nx+1])
+        # print(u[1:ny+1, 2:nx+1] * (Ix[:,1:-1] * mu))
 
 
         ve = 0.5 * (v[2:ny+1, 2:nx+2] + v[2:ny+1, 1:nx+1])
@@ -175,8 +224,8 @@ def solve(lx, ly, nx, ny, Nt, vel0):
         diffusion = nu * ((v[2:ny+1, 2:nx+2] - 2.0 * v[2:ny+1, 1:nx+1] + v[2:ny+1, 0:nx]) / dx**2 +
                         (v[3:ny+2, 1:nx+1] - 2.0 * v[2:ny+1, 1:nx+1] + v[1:ny, 1:nx+1]) / dy**2)
 
-        vt[2:ny+1, 1: nx+1] = v[2:ny+1, 1: nx+1] + dt*(convection + diffusion)
-    
+        vt[2:ny+1, 1: nx+1] = v[2:ny+1, 1: nx+1] + dt*(convection + diffusion) + mu * Iy[1:-1,:] * (vf_y[1:-1,:] + v[2:ny+1, 1: nx+1])
+    # dt * mu * Iy[1:-1,:] * (vf_y[1:-1,:] -
         divut[1:-1, 1:-1] = (ut[1:-1, 2:] - ut[1:-1, 1:-1])/dx + (vt[2:, 1:-1] - vt[1:-1, 1:-1])/dy   # solo interior points
         prhs = divut[1:-1,1:-1].ravel('F') * dx * dy / dt
 
@@ -308,11 +357,12 @@ def create_video(u_i, v_i, p_i, name, lx, nx, dx, ly, ny, dy):
 if __name__ == "__main__":
      # Domain
     lx, ly = 1.0, 1.0
+    mu = 1e10
 
     # Number of volumes per direction (pressure volumes)
     nx, ny = 50, 50
     dt = 0.01
-    Nt = 500 
+    Nt = 5 
 
     nu = 0.01
 
@@ -322,11 +372,55 @@ if __name__ == "__main__":
 
     dx = lx/nx
     dy = ly/ny
-    usol, vsol, psol = solve(lx, ly, nx, ny, Nt, vel0)
+    usol, vsol, psol = solve(lx, ly, nx, ny, Nt, vel0, mu)
+
+
     # plot_divergence(usol[-1], vsol[-1], nx, ny, lx/nx, ly/ny)
     u_i, v_i, p_i = interpolation(usol, vsol, psol, False)
 
     visual(u_i, v_i, p_i, lx, nx, dx, ly, ny, dy)
+
+    x = np.linspace(0, lx, nx)
+    y = np.linspace(0, ly, ny)
+    xx, yy = np.meshgrid(x,y)
+
+    lx_s = 0.15
+    ly_s = 0.15
+    nx_s = 5
+    ny_s = 5
+    Nb = (nx_s + 1) * (ny_s + 1)
+
+    x = np.linspace(0, lx_s, nx_s +1)
+    y = np.linspace(0, ly_s, ny_s + 1)
+    X, Y = np.meshgrid(x, y, indexing='ij')
+    P = np.vstack([X.ravel(), Y.ravel()])
+
+    ix, jy = np.meshgrid(np.arange(nx_s), np.arange(ny_s), indexing='ij')
+    n1 = ix * (ny_s + 1) + jy
+    n2 = n1 + (ny_s + 1)
+    n3 = n2 + 1
+    n4 = n1 + 1
+    T = np.stack([n1, n2, n3, n4], axis=-1).reshape(-1, 4).T
+
+    d0x, d0y = 0.275, 0.25
+
+    x_obj = P[0, :] + d0x 
+    y_obj = P[1, :] + d0y
+
+
+    x_def = x_obj
+    y_def = y_obj
+    plt.streamplot(xx, yy, u_i[-1], v_i[-1], color=u_i[-1], density=1.5, cmap=plt.cm.autumn, linewidth=1.0)
+    for e in range(T.shape[1]):
+        node_ids = T[:, e]
+    
+        x_coords = [x_def[i] for i in node_ids] + [x_def[node_ids[0]]] 
+        y_coords = [y_def[i] for i in node_ids] + [y_def[node_ids[0]]]
+        plt.plot(x_coords, y_coords, color='blue', linewidth=0.5)
+
+    plt.xlim(0, lx)
+    plt.ylim(0, ly)
+    plt.show()
     # create_video(u_i, v_i, p_i, 'test0', lx, nx, dx, ly, ny, dy)
 
     # base = np.linspace(0,1,nx)
