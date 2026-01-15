@@ -58,7 +58,7 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
         v_f_small = v_f[1:, 1:-1]
 
         # One coupling operator per timestep -> OK for small dt
-        Bx, By = assembly_B_ID(u1_s + P[0,:] + d0_x_s, u2_s + P[1,:] + d0_y_s, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T) 
+        Bx, By, _, _ = assembly_B_ID(u1_s + P[0,:] + d0_x_s, u2_s + P[1,:] + d0_y_s, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T) 
  
         lam_old = np.zeros_like(lam)
 

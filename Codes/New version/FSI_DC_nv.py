@@ -256,7 +256,7 @@ def fluid_solver_nv(u, v, nx, ny, dx, dy, dt, nu, Fx, Fy, C, vel0, rho):
     diffusion = nu * ((u[1:ny+1, 1:nx] - 2.0 * u[1:ny+1, 2:nx+1] + u[1:ny+1, 3:nx+2]) / dx**2 +
                     (u[0:ny, 2:nx+1] - 2.0 * u[1:ny+1, 2:nx+1] + u[2:ny+2, 2:nx+1]) / dy**2)
     
-    ut[1:ny+1, 2:nx+1] = u[1:ny+1, 2:nx+1] + dt * (convection + diffusion + Fx[:, 1:-1]/(dx * dy * rho))
+    ut[1:ny+1, 2:nx+1] = u[1:ny+1, 2:nx+1] + dt * (convection + diffusion + Fx[:, 1:-1]/rho)#/(dx * dy * rho))
      
     ve = 0.5 * (v[2:ny+1, 2:nx+2] + v[2:ny+1, 1:nx+1])
     vw = 0.5 * (v[2:ny+1, 1:nx+1] + v[2:ny+1, 0:nx])
@@ -268,7 +268,7 @@ def fluid_solver_nv(u, v, nx, ny, dx, dy, dt, nu, Fx, Fy, C, vel0, rho):
     diffusion = nu * ((v[2:ny+1, 2:nx+2] - 2.0 * v[2:ny+1, 1:nx+1] + v[2:ny+1, 0:nx]) / dx**2 +
                     (v[3:ny+2, 1:nx+1] - 2.0 * v[2:ny+1, 1:nx+1] + v[1:ny, 1:nx+1]) / dy**2)
  
-    vt[2:ny+1, 1: nx+1] = v[2:ny+1, 1: nx+1] + dt*(convection + diffusion + Fy[1:-1, :]/(dx * dy * rho))
+    vt[2:ny+1, 1: nx+1] = v[2:ny+1, 1: nx+1] + dt*(convection + diffusion + Fy[1:-1, :]/rho)#/(dx * dy * rho))
     # Perchè Fy[1:ny, 0:nx] e non Fy[0:ny, 0:nx]
 
     divut[1:-1, 1:-1] = (ut[1:-1, 2:] - ut[1:-1, 1:-1])/dx + (vt[2:, 1:-1] - vt[1:-1, 1:-1])/dy
@@ -387,4 +387,149 @@ def assembly_B_ID(Pos_x, Pos_y, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T):
     By_normalized[nonzero_rows_y] = By_normalized[nonzero_rows_y] / row_sums_y[nonzero_rows_y, np.newaxis]
     
 #    By_normalized = np.where(row_sums_y[:, np.newaxis] != 0, By / row_sums_y[:, np.newaxis], 0.0)
-    return Bx_normalized, By_normalized
+    return Bx_normalized, By_normalized, Bx, By
+
+def assembly_C_ID(Pos_x, Pos_y, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T):
+    quad_nodes, quad_weights = compute_quad(4)
+
+    Nb = (nx_s+1)*(ny_s+1)
+    Bx = np.zeros((Nb, ny_f * (nx_f + 1)))
+    By = np.zeros((Nb, (ny_f + 1) * nx_f))
+    Pos = np.vstack((Pos_x, Pos_y))
+
+    for e in range(T.shape[1]):
+        for q in range(len(quad_nodes)):
+            xq_f = phi(0,quad_nodes[q][0], quad_nodes[q][1]) * Pos[:,T[0,e]] + phi(1,quad_nodes[q][0], quad_nodes[q][1]) * Pos[:,T[1,e]] + phi(2,quad_nodes[q][0], quad_nodes[q][1]) * Pos[:,T[2,e]] + phi(3,quad_nodes[q][0], quad_nodes[q][1]) * Pos[:,T[3,e]]
+            
+            jx = fluid_cell_x(xq_f, dx_f, dy_f, nx_f, ny_f)
+            jy = fluid_cell_y(xq_f, dx_f, dy_f, nx_f, ny_f)
+
+            J = compute_Jacobian(e, T, Pos, quad_nodes[q][0], quad_nodes[q][1])
+
+            for k in range(4):
+                i = T[k,e]
+                Bx[i, jx] += quad_weights[q] * phi(k, quad_nodes[q][0], quad_nodes[q][1]) * J
+                By[i, jy] += quad_weights[q] * phi(k, quad_nodes[q][0], quad_nodes[q][1]) * J
+
+    Cx = Bx.T
+    Cy = By.T
+
+    row_sums_x = np.sum(Cx, axis=1)
+    nonzero_rows_x = row_sums_x != 0
+    Cx_normalized = Cx.astype(float).copy()
+    Cx_normalized[nonzero_rows_x] = Cx_normalized[nonzero_rows_x] / row_sums_x[nonzero_rows_x, np.newaxis]
+    
+    row_sums_y = np.sum(Cy, axis=1)
+    nonzero_rows_y = row_sums_y != 0
+    Cy_normalized = Cy.astype(float).copy()
+    Cy_normalized[nonzero_rows_y] = Cy_normalized[nonzero_rows_y] / row_sums_y[nonzero_rows_y, np.newaxis]
+    
+    return Cx_normalized, Cy_normalized, Bx, By
+
+
+def assembly_indicator(Pos_x, Pos_y, dx_f, dy_f, nx_f, ny_f, lx_f, ly_f):
+    cell_area = dx_f * dy_f
+    
+    points = np.column_stack((Pos_x, Pos_y))
+    polygon = MultiPoint(points).convex_hull
+    
+    Bx = np.zeros((nx_f + 1, ny_f))
+    By = np.zeros((nx_f, ny_f + 1))
+
+    X_x = np.linspace(-dx_f/2, lx_f + dx_f/2, nx_f + 2)
+    X_y = np.linspace(0, ly_f, ny_f + 1)
+
+    Y_x = np.linspace(0, lx_f, nx_f + 1)
+    Y_y = np.linspace(-dy_f,ly_f + dy_f/2, ny_f + 2)
+
+    for i in range(nx_f + 1):
+        for j in range(ny_f):
+            cell = box(X_x[i], X_y[j], X_x[i+1], X_y[j+1])
+            inter_area = polygon.intersection(cell).area
+            Bx[i, j] = inter_area / cell_area
+
+    for i in range(nx_f):
+        for j in range(ny_f + 1):
+            cell = box(Y_x[i], Y_y[j], Y_x[i+1], Y_y[j+1])
+            inter_area = polygon.intersection(cell).area
+            By[i, j] = inter_area / cell_area
+
+    return Bx, By
+
+
+def fluid_solver_Pen_nv(u, v, nx, ny, dx, dy, dt, nu, C, vel0, mu, Ix, Iy, vf_x, vf_y):
+    p = np.zeros_like(u)
+    ut = np.zeros_like(u)
+    vt = np.zeros_like(v)
+    divut = np.zeros_like(v)
+    
+    penalty_mask_u = Ix[1:-1, :].T
+    penalty_mask_v = Iy[:, 1:-1].T
+    
+    Ut, Ub, Vl, Vr = vel0
+    
+    # Left wall
+    u[:,1] = 0.0
+    v[:,0] = 2.0 * Vl - v[:,1]
+
+    # Right wall
+    u[:,-1] = 0.0
+    v[:, -1] = 2.0 * Vr - v[:,-2]
+
+    # Top wall
+    u[-1,:] = 2.0 * Ut - u[-2,:]
+    v[-1,:] = 0.0
+
+    # Bottom wall
+    u[0,:] = 2.0 * Ub - u[1,:]
+    v[1,:] = 0.0
+    
+    
+    ue = 0.5 * (u[1:ny+1, 3:nx+2] + u[1:ny+1, 2:nx+1])
+    uw = 0.5 * (u[1:ny+1, 2:nx+1] + u[1:ny+1, 1:nx])
+    un = 0.5 * (u[2:ny+2, 2:nx+1] + u[1:ny+1, 2:nx+1])
+    us = 0.5 * (u[1:ny+1, 2:nx+1] + u[0:ny, 2:nx+1])
+    vn = 0.5 * (v[2:ny+2, 1:nx] + v[2:ny+2, 2:nx+1])
+    vs = 0.5 * (v[1:ny+1, 1:nx] + v[1:ny+1, 2:nx+1])
+    
+    convection = -(ue**2 - uw**2) / dx - (un * vn - us * vs) / dy
+    diffusion = nu * ((u[1:ny+1, 1:nx] - 2.0 * u[1:ny+1, 2:nx+1] + u[1:ny+1, 3:nx+2]) / dx**2 +
+                    (u[0:ny, 2:nx+1] - 2.0 * u[1:ny+1, 2:nx+1] + u[2:ny+2, 2:nx+1]) / dy**2)
+  
+
+    ut[1:ny+1, 2:nx+1] = u[1:ny+1, 2:nx+1] + dt * (convection + diffusion)
+    ut[1:ny+1, 2:nx+1] = (ut[1:ny+1, 2:nx+1] + dt * mu * penalty_mask_u * vf_x) / (1.0 + dt * mu * penalty_mask_u)
+    
+    
+    ve = 0.5 * (v[2:ny+1, 2:nx+2] + v[2:ny+1, 1:nx+1])
+    vw = 0.5 * (v[2:ny+1, 1:nx+1] + v[2:ny+1, 0:nx])
+    ue = 0.5 * (u[2:ny+1, 2:nx+2] + u[1:ny, 2:nx+2])
+    uw = 0.5 * (u[2:ny+1, 1:nx+1] + u[1:ny, 1:nx+1])
+    vn = 0.5 * (v[3:ny+2, 1:nx+1] + v[2:ny+1, 1:nx+1])
+    vs = 0.5 * (v[2:ny+1, 1:nx+1] + v[1:ny, 1:nx+1])
+    convection = -(ue * ve - uw * vw)/dx - (vn**2 - vs**2)/dy
+    diffusion = nu * ((v[2:ny+1, 2:nx+2] - 2.0 * v[2:ny+1, 1:nx+1] + v[2:ny+1, 0:nx]) / dx**2 +
+                    (v[3:ny+2, 1:nx+1] - 2.0 * v[2:ny+1, 1:nx+1] + v[1:ny, 1:nx+1]) / dy**2)
+ 
+    vt[2:ny+1, 1: nx+1] = v[2:ny+1, 1: nx+1] + dt * (convection + diffusion)
+    vt[2:ny+1, 1: nx+1] = (vt[2:ny+1, 1: nx+1] + dt * mu * penalty_mask_v * vf_y) / (1.0 + dt * mu * penalty_mask_v)
+    
+
+    divut[1:-1, 1:-1] = (ut[1:-1, 2:] - ut[1:-1, 1:-1])/dx + (vt[2:, 1:-1] - vt[1:-1, 1:-1])/dy
+    prhs = divut[1:-1,1:-1].ravel('F') * dx * dy / dt
+    
+    sol = C.solve(prhs)
+    
+    p[1:-1, 1:-1] = sol.reshape((ny, nx), order='F')
+
+    u[1:-1, 2:-1] = ut[1:-1, 2:-1] - dt * (p[1:-1, 2:-1] - p[1:-1, 1:-2])/dx     # solo interior, bc già fatte
+    v[2:-1, 1:-1] = vt[2:-1, 1:-1] - dt * (p[2:-1, 1:-1] - p[1:-2, 1:-1])/dy
+    
+    
+    # stress_x = penalty_mask_u * mu * (u[1:-1, 2:-1] - vf_x)
+    # stress_y = penalty_mask_v * mu * (v[2:-1, 1:-1] - vf_y)
+
+    stress_x = mu * (u[1:-1, 2:-1] - vf_x)
+    stress_y = mu * (v[2:-1, 1:-1] - vf_y)
+
+    return u, v, p, stress_x, stress_y

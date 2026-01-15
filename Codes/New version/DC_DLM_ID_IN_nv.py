@@ -17,8 +17,6 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
     p_f = np.zeros([ny_f + 2, nx_f + 2])      # N.B. i e j sono invertiti !
     u_f = np.zeros_like(p_f)
     v_f = np.zeros_like(p_f)
-    # beta = 0.25
-    # gamma = 0.5
 
     usol_f = []
     vsol_f = []
@@ -34,7 +32,6 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
     vsol_s = []
     asol_s = []
 
-    # test
     u1_s = np.zeros(Nb)
     u2_s = np.zeros(Nb)
     u_s = np.concatenate((u1_s, u2_s))
@@ -52,7 +49,6 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
     lam_y = np.zeros(Nb)
 
     R_s, M_el, A_s, b_s, P, T, M, bdry = solid_assembly(lx_s, ly_s, nx_s, ny_s, dx_s, dy_s, lam_s, mu_s, dt)
-    # R = M_el/(gamma * dt) + (beta * dt / gamma) * A_s
     Af, _ = fluid_assembly(nx_f, ny_f, dx_f, dy_f)
     
     tot_it = 0
@@ -61,7 +57,7 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
         v_f_small = v_f[1:, 1:-1]
 
         # One coupling operator per timestep -> OK for small dt
-        Bx, By = assembly_B_ID(u1_s + P[0,:] + d0_x_s, u2_s + P[1,:] + d0_y_s, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T) 
+        Bx, By, Bxx, Byy = assembly_B_ID(u1_s + P[0,:] + d0_x_s, u2_s + P[1,:] + d0_y_s, dx_f, dy_f, nx_s, ny_s, nx_f, ny_f, T) 
  
         lam_old = np.zeros_like(lam)
 
@@ -71,10 +67,7 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
         #Picard iteration solver
         k = 0
         err = 1e5
-        # un = usol_s[t] + dt * vsol_s[t] + dt * dt * (0.5 - beta) * asol_s[t] 
-        # vn = vsol_s[t] + dt * (1.0 - gamma) * asol_s[t]
-        # rhs = (1/(gamma * dt)) * M_el * vn - A_s * (un - (beta * dt / gamma)* vn) 
-    # Valuta se mettere il controllo t>0 o no.. non è detto che serva
+
         while err > tol and k < maxit or k < minit:
 
             # Get solid velocity from fluid interface (kinematic condition)
@@ -82,17 +75,10 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
             v2_s = By @ v_f_small.ravel() 
             v_s = np.concatenate((v1_s, v2_s))
 
-                # a_s = (v_s - vn) /(gamma * dt)
-                # u_s = un + beta * dt * dt * a_s
-
             a_s = (v_s - vsol_s[t])/dt
             u_s = usol_s[t] + dt * v_s #+ dt * dt * 0.5 * a_s
 
-                # F_int = A_s @ u_s
-                # F_inertia = rho_s * M_el @ a_s    
-                # lam_new = F_int + F_inertia  
             lam = (rho_s - rho_f) * M_el @ a_s + A_s @ u_s                                
-
     
             lam_x = lam[:Nb] 
             lam_y = lam[Nb:] 
@@ -105,7 +91,7 @@ def solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s
             F_y = F_y.reshape((ny_f + 1, nx_f))
 
             u_f, v_f, p_f = fluid_solver_nv(usol_f[t].copy(), vsol_f[t].copy(), nx_f, ny_f, dx_f, dy_f, dt, nu_f, F_x, F_y, Af, vel0_f, rho_f)
-
+        
             u_f_small = u_f[1:-1, 1:]
             v_f_small = v_f[1:, 1:-1]
 
@@ -150,7 +136,7 @@ if __name__ == "__main__":
 
      # Fluid material properties
     rho_f = 1.0              #density
-    mu_f  = 0.0001             #dynamic viscosity
+    mu_f  = 0.001             #dynamic viscosity
     nu_f  = mu_f / rho_f     #kinematic viscosity
     print('nu_f', nu_f)
    
@@ -171,16 +157,15 @@ if __name__ == "__main__":
     d0_y_s = 0.25 * np.ones(Nb)
 
     # Solid material properties
-    E_s = 1000
+    E_s = 10000
     nu_s = 0.4
     rho_s = 1.5  # Solid density [kg/m^2]
 
     mu_s = E_s /(2*(1 + nu_s))
     lam_s =  E_s * nu_s /((1 + nu_s)* (1 - 2 * nu_s))
-
-
-    dt = 0.001
-    Nt = 5
+    
+    dt = 0.01
+    Nt = 1000
 
     # compute usol_f, vsol_f, psol_f and usol_s, vsol_s, asol_s
     u_f, v_f, p_f, u_s, v_s, a_s, P, T = solve(lx_f, ly_f, nx_f, ny_f, dx_f, dy_f, Nt, vel0_f, lx_s, ly_s, nx_s, ny_s, dx_s, dy_s, d0_x_s, d0_y_s, mu_s, lam_s, dt, Nb, nu_f, rho_f, rho_s, tol, minit=0, maxit=500)
