@@ -1,6 +1,6 @@
 # Comparison of Fully Coupled Immersed Boundary and Domain Schemes for Fluid–Structure Interaction
 
-This repository contains the **code, numerical experiments, and supporting material** for the scientific paper:
+This repository contains the **code, numerical experiments, and supporting material** for the preceeding paper:
 
 > **Comparison of Fully Coupled Immersed Boundary and Domain Schemes for  
 > Fluid–Structure Interaction with Lagrange Multipliers**
