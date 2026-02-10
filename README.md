@@ -18,9 +18,6 @@ The goal of this repository is to ensure **transparency, reproducibility, and re
 │   ├── utils.py
 │   ├── fsi_solvers.py
 │   └── main.py
-├── results/        # Figures and tables shown in the manuscript
-├── LICENSE
-├── CITATION.cff
 └── README.md
 ```
 ---
