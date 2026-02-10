@@ -15,9 +15,10 @@ The goal of this repository is to ensure **transparency, reproducibility, and re
 .
 ├── paper/          # Manuscript PDF
 ├── code/           # Source code for IB and ID schemes
+│   ├── utils.py
+│   ├── fsi_solvers.py
+│   └── main.py
 ├── results/        # Figures and tables shown in the manuscript
-├── scripts/        # Helper scripts for running and post-processing
-├── data/           # Input/output data (see notes below)
 ├── LICENSE
 ├── CITATION.cff
 └── README.md
