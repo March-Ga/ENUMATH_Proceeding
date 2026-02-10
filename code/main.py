@@ -1,5 +1,5 @@
 from fsi_solvers import *   
-import os         
+from pathlib import Path         
 
 # =============================================================================
 # Main driver script for Fluid–Structure Interaction (FSI) simulations
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # OUTPUT SETTINGS
     # -------------------------------------------------------------------------
     file_base = "test"              # Base filename for saved results
-    os.makedirs("DATA", exist_ok=True)  # Create output folder if missing
+    Path("DATA").mkdir(exist_ok=True)  # Create output folder if missing
     folder = "DATA"                 # Directory for results
 
     # -------------------------------------------------------------------------
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     E_s = 1e6     # Young’s modulus [Pa]
     nu_s = 0.4    # Poisson ratio
-    rho_s = 100   # Solid density [kg/m^2]
+    rho_s = 1   # Solid density [kg/m^2]
 
     # Lamé parameters
     mu_s = E_s /(2*(1 + nu_s))                 # Shear modulus
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     # TIME DISCRETIZATION
     # ========================================================================
     dt = 1e-3               # Time step size
-    T_final = 0.5           # Final simulation time
+    T_final = 0.1           # Final simulation time
     Nt = int(T_final/dt)    # Number of time steps
 
 
