@@ -23,5 +23,9 @@ The goal of this repository is to ensure **transparency, reproducibility, and re
 ├── CITATION.cff
 └── README.md
 
+---
 
+## Code section
+
+The code section contains 3 files:
 
