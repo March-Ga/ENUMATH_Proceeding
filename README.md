@@ -22,10 +22,38 @@ The goal of this repository is to ensure **transparency, reproducibility, and re
 ├── LICENSE
 ├── CITATION.cff
 └── README.md
-
+```
 ---
 
 ## Code section
 
 The code section contains 3 files:
+- `utils.py` – auxiliary functions for fluid, solid, and coupling operators  
+- `fsi_solvers.py` – fully coupled IB and ID solvers  
+- `main.py` – executable script to run the numerical experiments
+  
+---
+## Instructions for Reproducing the Results
 
+To reproduce the simulations and results presented in this repository, follow these steps:
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/your-repo.git
+cd your-repo
+```
+### 2. Create a Python virtual environment
+```bash
+python -m venv venv
+```
+#### Activate the environment:
+
+- Linux / macOS:
+```
+source venv/bin/activate
+
+- Windows (PowerShell):
+```bash
+.\venv\Scripts\Activate.ps1
+```
